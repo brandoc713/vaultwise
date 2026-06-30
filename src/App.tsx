@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDownToLine,
   BarChart3,
@@ -27,14 +27,15 @@ import {
   YAxis,
 } from "recharts";
 import {
-  exportTransactionsCsv,
+  downloadTransactionsCsv,
   getAccounts,
   getCategories,
   getStatementImports,
   getTransactions,
+  isApiMode,
   updateTransactionCategory,
 } from "./services/financeData";
-import type { Category, Transaction, ViewKey } from "./types";
+import type { Account, Category, StatementImport, Transaction, ViewKey } from "./types";
 
 const navItems: Array<{ key: ViewKey; label: string; icon: typeof Home }> = [
   { key: "dashboard", label: "Dashboard", icon: BarChart3 },
@@ -57,14 +58,43 @@ const exactMoney = new Intl.NumberFormat("en-US", {
 
 function App() {
   const [activeView, setActiveView] = useState<ViewKey>("dashboard");
-  const [transactions, setTransactions] = useState<Transaction[]>(getTransactions());
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [statements, setStatements] = useState<StatementImport[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const accounts = getAccounts();
-  const categories = getCategories();
-  const statements = getStatementImports();
+  useEffect(() => {
+    let cancelled = false;
+    async function loadData() {
+      try {
+        const [loadedAccounts, loadedCategories, loadedStatements, loadedTransactions] = await Promise.all([
+          getAccounts(),
+          getCategories(),
+          getStatementImports(),
+          getTransactions(),
+        ]);
+        if (!cancelled) {
+          setAccounts(loadedAccounts);
+          setCategories(loadedCategories);
+          setStatements(loadedStatements);
+          setTransactions(loadedTransactions);
+          setLoadError(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLoadError(error instanceof Error ? error.message : "Failed to load finance data");
+        }
+      }
+    }
+    loadData();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filteredTransactions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -79,12 +109,13 @@ function App() {
     });
   }, [categoryFilter, query, statusFilter, transactions]);
 
-  function handleCategoryChange(transactionId: string, categoryId: string) {
-    setTransactions((current) => updateTransactionCategory(current, transactionId, categoryId));
+  async function handleCategoryChange(transactionId: string, categoryId: string) {
+    const nextTransactions = await updateTransactionCategory(transactions, transactionId, categoryId);
+    setTransactions(nextTransactions);
   }
 
-  function handleExport() {
-    const csv = exportTransactionsCsv(filteredTransactions);
+  async function handleExport() {
+    const csv = await downloadTransactionsCsv(filteredTransactions);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -135,6 +166,11 @@ function App() {
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-8">
           <MobileNav activeView={activeView} setActiveView={setActiveView} />
           <Header activeView={activeView} />
+          {loadError && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {loadError}. {isApiMode() ? "Check that FastAPI is running at VITE_API_BASE_URL." : ""}
+            </div>
+          )}
 
           {activeView === "dashboard" && (
             <Dashboard transactions={transactions} accounts={accounts} categories={categories} statements={statements} />
@@ -151,7 +187,7 @@ function App() {
               setCategoryFilter={setCategoryFilter}
               statusFilter={statusFilter}
               setStatusFilter={setStatusFilter}
-              onCategoryChange={handleCategoryChange}
+              onCategoryChange={(transactionId, categoryId) => void handleCategoryChange(transactionId, categoryId)}
             />
           )}
           {activeView === "review" && (
@@ -160,12 +196,12 @@ function App() {
               accounts={accounts}
               transactions={transactions}
               categories={categories}
-              onCategoryChange={handleCategoryChange}
+              onCategoryChange={(transactionId, categoryId) => void handleCategoryChange(transactionId, categoryId)}
             />
           )}
           {activeView === "categories" && <CategoriesView categories={categories} transactions={transactions} />}
           {activeView === "export" && (
-            <ExportView count={filteredTransactions.length} total={transactions.length} onExport={handleExport} />
+            <ExportView count={filteredTransactions.length} total={transactions.length} onExport={() => void handleExport()} />
           )}
         </main>
       </div>
@@ -247,9 +283,9 @@ function Dashboard({
   statements,
 }: {
   transactions: Transaction[];
-  accounts: ReturnType<typeof getAccounts>;
+  accounts: Account[];
   categories: Category[];
-  statements: ReturnType<typeof getStatementImports>;
+  statements: StatementImport[];
 }) {
   const income = transactions.filter((t) => t.direction === "income").reduce((sum, t) => sum + t.amount, 0);
   const expenses = Math.abs(
@@ -355,7 +391,7 @@ function TransactionsView({
   transactions: Transaction[];
   allTransactions: Transaction[];
   categories: Category[];
-  accounts: ReturnType<typeof getAccounts>;
+  accounts: Account[];
   query: string;
   setQuery: (value: string) => void;
   categoryFilter: string;
@@ -420,8 +456,8 @@ function ReviewView({
   categories,
   onCategoryChange,
 }: {
-  statements: ReturnType<typeof getStatementImports>;
-  accounts: ReturnType<typeof getAccounts>;
+  statements: StatementImport[];
+  accounts: Account[];
   transactions: Transaction[];
   categories: Category[];
   onCategoryChange: (transactionId: string, categoryId: string) => void;
@@ -597,7 +633,7 @@ function TransactionTable({
 }: {
   transactions: Transaction[];
   categories: Category[];
-  accounts: ReturnType<typeof getAccounts>;
+  accounts: Account[];
   onCategoryChange?: (transactionId: string, categoryId: string) => void;
   compact?: boolean;
 }) {
@@ -722,7 +758,7 @@ function MiniStat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function accountName(accountId: string, accounts: ReturnType<typeof getAccounts>) {
+function accountName(accountId: string, accounts: Account[]) {
   return accounts.find((account) => account.id === accountId)?.name ?? "Unknown account";
 }
 
