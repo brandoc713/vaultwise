@@ -8,7 +8,7 @@ This repository contains a recruiter-facing static demo built with privacy-safe 
 
 Public product demo target:
 
-`https://<github-username>.github.io/smart-home-finance-platform/`
+`https://<github-username>.github.io/vaultwise/`
 
 After pushing to GitHub, enable Pages from GitHub Actions in the repository settings. The public demo runs as a static React app using sanitized fixture data.
 
@@ -101,7 +101,7 @@ VITE_DATA_MODE=api VITE_API_BASE_URL=http://localhost:8000 npm run dev
 
 The included GitHub Actions workflow builds and deploys `dist/` to GitHub Pages on pushes to `main`.
 
-Before publishing, update the `base` path in `vite.config.ts` if your GitHub repository name differs from `smart-home-finance-platform`.
+The production Vite base path is configured for the GitHub repository name `vaultwise`.
 
 ## Architecture Notes
 
