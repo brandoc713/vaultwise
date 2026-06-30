@@ -1,63 +1,190 @@
-# Personal Finance Statement Intelligence Platform
+# Vaultwise
 
-A local-first personal finance MVP that turns messy statement activity into normalized transactions, review queues, category intelligence, dashboard summaries, and CSV exports.
+Vaultwise is a local-first personal finance intelligence platform for turning bank and credit card statements into normalized transactions, review queues, spending insights, and machine-learning-assisted categorization.
 
-This repository contains a recruiter-facing static demo built with privacy-safe fixture data plus a local-only FastAPI backend for private statement ingestion. The public UI is intentionally separated from private local data so real statements can be processed without exposing PDFs, raw transaction text, or account details.
+The public demo uses privacy-safe fixture data generated from a local parsing workflow. No real statements, raw transaction descriptions, account numbers, local database files, or trained local models are committed to this repository.
 
-## Product Demo
+## Live Demo
 
-Public product demo target:
+Product demo:
 
 `https://<github-username>.github.io/vaultwise/`
 
-After pushing to GitHub, enable Pages from GitHub Actions in the repository settings. The public demo runs as a static React app using sanitized fixture data.
+Repository:
 
-## Current MVP
+`https://github.com/<github-username>/vaultwise`
 
-- Polished React dashboard with spending, income, cash flow, and category charts.
-- Transaction table with search, status filters, category filters, and category correction controls.
-- Statement review workflow preview for PDF/CSV ingestion.
-- Rules-first merchant normalization examples.
-- Functional CSV export for the current browser-session transaction state.
-- Privacy-safe public fixture data; no real PDFs, raw transaction text, account numbers, or private exports are stored in the repo.
-- Local FastAPI backend foundation for private statement uploads, PostgreSQL storage, review corrections, CSV export, and scikit-learn categorization.
+## Problem Statement
+
+Bank and credit card statements are useful records, but they are not built for day-to-day financial understanding. They are fragmented across accounts, inconsistent across formats, difficult to search, and hard to explain to non-technical family members.
+
+Vaultwise addresses that problem by converting statement activity into structured data that can answer practical questions:
+
+- Where is the money going?
+- Which account did a transaction come from?
+- How much spending is happening on the credit card versus checking?
+- Which transactions need review?
+- Which merchants and categories drive monthly cash flow?
+- How can corrected labels improve future categorization?
+
+The project is designed around a privacy-conscious workflow: real financial documents can be processed locally, while the public-facing demo shows only sanitized fixture data.
+
+## Features
+
+- Privacy-safe public dashboard with sanitized transaction fixtures.
+- Account-aware views for checking and credit card activity.
+- Statement ownership workflow so each uploaded PDF/CSV belongs to the right account.
+- Transaction table with search, account filters, category filters, status filters, and correction controls.
+- Spending summaries by month, account, category, and transaction status.
+- Statement review workflow for parsed, flagged, and low-confidence transactions.
+- Rules-first merchant/category classification.
+- Manual correction tracking for human-in-the-loop labeling.
+- CSV export for normalized transactions.
+- FastAPI backend for private local ingestion.
+- PostgreSQL-backed schema for accounts, statements, transactions, corrections, and ML predictions.
+- PDF text detection with `pdfplumber` and PyMuPDF fallback.
+- scikit-learn classifier foundation using corrected transactions as training data.
+- Sanitized fixture generator for producing public-safe demo data from local private parsing.
 
 ## Tech Stack
 
-- React + TypeScript
+Frontend:
+
+- React
+- TypeScript
 - Vite
 - Tailwind CSS
 - Recharts
 - lucide-react
-- GitHub Pages workflow
+- GitHub Pages
+
+Backend:
+
+- Python
 - FastAPI
-- PostgreSQL
+- Pydantic
 - SQLAlchemy
-- pdfplumber / PyMuPDF
+- PostgreSQL
+- Docker Compose
+- Alembic foundation
+
+Data and ML:
+
+- pdfplumber
+- PyMuPDF
+- pandas
 - scikit-learn
+- joblib
 
-## Local Development
+Testing and quality:
 
-Frontend public demo:
+- pytest
+- FastAPI TestClient
+- TypeScript production build
+- privacy check script for staged files
+
+## Architecture
+
+Vaultwise has two operating modes.
+
+### Public Demo Mode
+
+The GitHub Pages demo is a static React app. It reads from sanitized fixture data in:
+
+```text
+src/data/sanitizedFixtures.ts
+```
+
+This mode is safe to publish because the fixture data uses:
+
+- generic account names
+- generic merchant names
+- shifted dates
+- rounded/scaled amounts
+- synthetic statement filenames
+- demo account IDs
+- no source lines
+- no PDF content
+- no account identifiers
+
+### Private Local Mode
+
+The local backend can process real statements without exposing them publicly.
+
+Private files stay under ignored local paths:
+
+```text
+local_data/statements/
+local_data/extracted_text/
+local_data/exports/
+local_data/models/
+.env
+```
+
+The backend supports:
+
+- local statement registration
+- account mapping by ignored filename tokens
+- PDF/CSV upload
+- SHA-256 duplicate detection
+- PDF text detection
+- transaction parsing
+- transaction normalization
+- category correction logging
+- scikit-learn model training
+
+## Backend API
+
+Implemented API surfaces include:
+
+- `GET /health`
+- `GET /api/accounts`
+- `POST /api/accounts`
+- `GET /api/categories`
+- `GET /api/statements`
+- `POST /api/statements/upload`
+- `GET /api/statements/{statement_id}`
+- `POST /api/statements/{statement_id}/parse`
+- `GET /api/transactions`
+- `PATCH /api/transactions/{transaction_id}`
+- `GET /api/transactions/export.csv`
+- `POST /api/ml/train`
+- `POST /api/ml/predict`
+- `GET /api/ml/status`
+
+## Local Setup
+
+Install frontend dependencies:
 
 ```bash
 npm install
+```
+
+Run the public-safe frontend demo:
+
+```bash
 npm run dev
 ```
 
-Build production assets:
+Build the production app:
 
 ```bash
 npm run build
 ```
 
-Preview production build:
+Preview the GitHub Pages build locally:
 
 ```bash
-npm run preview
+npm run preview -- --host 127.0.0.1
 ```
 
-## Backend Development
+Open:
+
+```text
+http://127.0.0.1:4173/vaultwise/
+```
+
+## Backend Setup
 
 Create the backend environment:
 
@@ -79,177 +206,77 @@ Run FastAPI:
 backend/.venv/bin/uvicorn app.main:app --reload --app-dir backend
 ```
 
-Health check:
-
-```bash
-curl http://localhost:8000/health
-```
-
-Run backend tests:
-
-```bash
-backend/.venv/bin/python -m pytest backend/app/tests -q
-```
-
 Use the frontend against the local API:
 
 ```bash
 VITE_DATA_MODE=api VITE_API_BASE_URL=http://localhost:8000 npm run dev
 ```
 
-## Deployment
+## Privacy-Safe Demo Data Workflow
 
-The included GitHub Actions workflow builds and deploys `dist/` to GitHub Pages on pushes to `main`.
-
-The production Vite base path is configured for the GitHub repository name `vaultwise`.
-
-## Architecture Notes
-
-The MVP uses `src/services/financeData.ts` as a frontend data boundary. Today it reads fixtures from `src/data/fixtures.ts`; tomorrow it can be swapped to API calls such as:
-
-- `GET /api/accounts`
-- `GET /api/categories`
-- `GET /api/transactions`
-- `GET /api/statements`
-- `PATCH /api/transactions/{id}`
-- `GET /api/transactions/export.csv`
-
-The backend now implements those API surfaces locally:
-
-- `GET /health`
-- `GET /api/accounts`
-- `POST /api/accounts`
-- `GET /api/categories`
-- `GET /api/statements`
-- `POST /api/statements/upload`
-- `GET /api/statements/{statement_id}`
-- `POST /api/statements/{statement_id}/parse`
-- `GET /api/transactions`
-- `PATCH /api/transactions/{transaction_id}`
-- `GET /api/transactions/export.csv`
-- `POST /api/ml/train`
-- `POST /api/ml/predict`
-- `GET /api/ml/status`
-
-The public GitHub Pages build defaults to fixture mode using `src/data/sanitizedFixtures.ts`. Local API mode is opt-in through `VITE_DATA_MODE=api`.
-
-## Private PDF Workflow
-
-Real bank statements should only be placed under ignored local folders:
-
-```text
-local_data/statements/
-local_data/extracted_text/
-local_data/exports/
-local_data/models/
-```
-
-Upload behavior:
-
-- Stores PDFs/CSVs under `local_data/statements/`.
-- Computes a SHA-256 hash to detect duplicate uploads.
-- Uses `pdfplumber` first and PyMuPDF second to detect text-based PDFs.
-- Marks scanned/empty PDFs clearly; OCR is not implemented yet.
-- Parses simple text/table-like transaction rows with a public generic parser.
-- Supports a local private parser profile at `local_data/parser_profile.json`.
-
-### Local Account Mapping
-
-If local statement filenames include account-specific tokens, keep those tokens in `.env`, not in committed source.
-
-Example local `.env` values:
-
-```bash
-CHECKING_ACCOUNT_NAME=Household Checking
-CHECKING_ACCOUNT_LAST_FOUR=0000
-CHECKING_STATEMENT_FILENAME_TOKEN=<checking filename token>
-CREDIT_ACCOUNT_NAME=Everyday Credit Card
-CREDIT_ACCOUNT_LAST_FOUR=0000
-CREDIT_STATEMENT_FILENAME_TOKEN=<credit filename token>
-```
-
-Use your real filename tokens and last-four values only in your ignored local `.env`.
-
-Register local statements with the correct account:
+Register ignored local statements with account ownership:
 
 ```bash
 npm run statements:register
 ```
 
-Register and immediately parse:
+Register and parse local statements:
 
 ```bash
 npm run statements:parse
 ```
 
-This scans `local_data/statements/`, assigns each PDF/CSV to checking or credit based on the configured filename tokens, records the SHA-256 hash, detects PDF text, and optionally parses transactions.
-
-### Sanitized Public Demo Data
-
-After local parsing and review, generate a public-safe fixture:
+Generate a sanitized public fixture:
 
 ```bash
 npm run demo:sanitize
 ```
 
-The sanitizer writes:
-
-```text
-src/data/sanitizedFixtures.ts
-```
-
-Sanitization behavior:
-
-- replaces account IDs and statement IDs
-- uses generic account names and `0000` last-four values
-- replaces merchant names with category-safe demo names
-- rewrites descriptions
-- shifts dates
-- rounds amounts to the nearest `$5`
-- removes statement filenames, source lines, hashes, and account-like values
-
-Run the frontend against sanitized fixtures:
-
-```bash
-VITE_FIXTURE_SOURCE=sanitized npm run dev
-```
-
-Run the older synthetic-only fixture set:
-
-```bash
-VITE_FIXTURE_SOURCE=synthetic npm run dev
-```
-
-The public GitHub Pages build defaults to sanitized fixtures. Only regenerate and commit `src/data/sanitizedFixtures.ts` after running the privacy checks below.
-
-## Privacy Check
-
-Before pushing public changes:
+Run the privacy check before pushing:
 
 ```bash
 npm run privacy:check
 ```
 
-The check fails if staged files include private local data, PDFs, `.env`, or long account-like number patterns.
+The privacy check fails if staged files include private local data, PDFs, `.env`, or long account-like number patterns.
+
+## Verification
+
+Useful checks:
+
+```bash
+npm run build
+backend/.venv/bin/python -m pytest backend/app/tests -q
+docker compose config --quiet
+npm run privacy:check
+```
+
+## Resume Highlights
+
+Vaultwise demonstrates:
+
+- full-stack product development with React, TypeScript, FastAPI, and PostgreSQL
+- privacy-conscious handling of sensitive financial data
+- PDF statement ingestion and normalized transaction modeling
+- account-aware transaction review across checking and credit card statements
+- human-in-the-loop correction workflows
+- scikit-learn-based categorization foundation
+- public demo generation from sanitized local data
+
+Example resume bullet:
+
+> Built Vaultwise, a local-first personal finance intelligence platform using React, FastAPI, PostgreSQL, SQLAlchemy, PDF extraction, and scikit-learn to normalize bank statements, review transactions, and generate privacy-safe financial dashboards.
 
 ## Roadmap
 
-- FastAPI backend skeleton.
-- PostgreSQL schema hardening and Alembic-managed migrations.
-- CSV parser for transaction exports.
-- PDF text extraction with `pdfplumber` or PyMuPDF.
-- Raw file storage for traceability.
-- Persistent manual corrections.
-- Rules-based categorization service.
-- scikit-learn classifier trained from corrected labels.
-- Docker Compose for local app + database.
+- Improve parser profiles for more statement layouts.
+- Add OCR support for scanned statements.
+- Add recurring transaction detection.
+- Expand ML evaluation and model reporting.
+- Add richer account reconciliation between checking and credit card payments.
+- Add Dockerized full-stack local deployment.
+- Add role-based household access for self-hosted use.
 
-## Resume Bullets This Repo Supports
+## Privacy Note
 
-- Built a local-first FastAPI ingestion service for bank statement PDFs with PostgreSQL-backed normalized transaction storage.
-- Designed a privacy-conscious financial data model with raw-file traceability, redacted frontend responses, and manual correction audit logs.
-- Implemented a rules-first and scikit-learn categorization pipeline using corrected transactions as training data.
-
-## Privacy
-
-The public demo data is sanitized fixture data. Private source statements, extracted text, local database state, and trained local models stay out of version control. The long-term product direction is local-first so sensitive financial statements do not need to leave the user’s environment.
+This repository is designed to be public. Real statements, local extracted text, account identifiers, local database files, and trained local model artifacts are excluded from version control. The hosted demo uses sanitized fixture data only.
