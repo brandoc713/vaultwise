@@ -6,6 +6,9 @@ from app.models import Correction, Transaction
 
 def test_health_and_account_create(client):
     assert client.get("/health").json() == {"status": "ok"}
+    seeded_accounts = client.get("/api/accounts").json()
+    assert {account["account_type"] for account in seeded_accounts} >= {"checking", "credit"}
+
     response = client.post(
         "/api/accounts",
         json={
@@ -30,7 +33,8 @@ def test_statement_upload_rejects_unsupported_files(client):
 
 
 def test_csv_upload_parse_patch_and_export(client):
-    account_id = client.get("/api/accounts").json()[0]["id"]
+    accounts = client.get("/api/accounts").json()
+    account_id = next(account["id"] for account in accounts if account["account_type"] == "credit")
     csv_body = b"""2026-06-01 ACME PAYROLL ACH CREDIT 5200.00
 2026-06-02 RENT PAYMENT AUTOPAY -1875.00
 2026-06-03 UNKNOWN POS 88210 -43.19
@@ -41,6 +45,7 @@ def test_csv_upload_parse_patch_and_export(client):
         files={"file": ("statement.csv", BytesIO(csv_body), "text/csv")},
     )
     assert upload.status_code == 201
+    assert upload.json()["account_id"] == account_id
     statement_id = upload.json()["id"]
 
     parsed = client.post(f"/api/statements/{statement_id}/parse")
@@ -49,6 +54,7 @@ def test_csv_upload_parse_patch_and_export(client):
 
     transactions = client.get("/api/transactions").json()
     assert len(transactions) == 3
+    assert {transaction["account_id"] for transaction in transactions} == {account_id}
     categories = client.get("/api/categories").json()
     groceries = next(category for category in categories if category["name"] == "Groceries")
 

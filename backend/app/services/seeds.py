@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.models import Account, AccountType, Category, CategoryKind
 
 
@@ -21,19 +22,35 @@ CATEGORY_SEEDS = [
 
 
 def seed_reference_data(db: Session) -> None:
+    settings = get_settings()
     for name, kind, color in CATEGORY_SEEDS:
         exists = db.query(Category).filter(Category.name == name).first()
         if not exists:
             db.add(Category(name=name, kind=kind, color=color))
 
-    demo_account = db.query(Account).filter(Account.name == "Local Statement Import").first()
-    if not demo_account:
-        db.add(
-            Account(
-                name="Local Statement Import",
-                institution="Private Local Bank",
-                account_type=AccountType.checking,
-                last_four="0000",
+    account_seeds = [
+        (
+            settings.checking_account_name,
+            "Private Local Bank",
+            AccountType.checking,
+            settings.checking_account_last_four[-4:],
+        ),
+        (
+            settings.credit_account_name,
+            "Private Local Bank",
+            AccountType.credit,
+            settings.credit_account_last_four[-4:],
+        ),
+    ]
+    for name, institution, account_type, last_four in account_seeds:
+        exists = db.query(Account).filter(Account.name == name).first()
+        if not exists:
+            db.add(
+                Account(
+                    name=name,
+                    institution=institution,
+                    account_type=account_type,
+                    last_four=last_four,
+                )
             )
-        )
     db.commit()

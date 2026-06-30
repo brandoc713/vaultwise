@@ -8,7 +8,10 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist",
-    "privacy:check": "python backend/scripts/privacy_check.py"
+    "privacy:check": "python backend/scripts/privacy_check.py",
+    "statements:register": "backend/.venv/bin/python backend/scripts/register_local_statements.py",
+    "statements:parse": "backend/.venv/bin/python backend/scripts/register_local_statements.py --parse",
+    "demo:sanitize": "backend/.venv/bin/python backend/scripts/generate_sanitized_demo.py"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",

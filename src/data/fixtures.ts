@@ -2,9 +2,7 @@ import type { Account, Category, StatementImport, Transaction } from "../types";
 
 export const accounts: Account[] = [
   { id: "acc-checking", name: "Household Checking", institution: "Local Credit Union", type: "checking", lastFour: "1042" },
-  { id: "acc-savings", name: "Emergency Savings", institution: "Local Credit Union", type: "savings", lastFour: "7781" },
   { id: "acc-card", name: "Everyday Rewards Card", institution: "Demo Card Services", type: "credit", lastFour: "4420" },
-  { id: "acc-invest", name: "Family Brokerage", institution: "Self-Hosted Import", type: "investment", lastFour: "9001" },
 ];
 
 export const categories: Category[] = [
@@ -32,10 +30,10 @@ const baseTransactions: Omit<Transaction, "id" | "statementId">[] = [
   { accountId: "acc-card", date: "2026-04-08", postedDate: "2026-04-09", description: "SHELL OIL 5742", merchant: "Shell", amount: -52.88, direction: "expense", categoryId: "cat-transport", confidence: 0.91, status: "reviewed", manualOverride: false },
   { accountId: "acc-card", date: "2026-04-10", postedDate: "2026-04-11", description: "NETFLIX.COM", merchant: "Netflix", amount: -22.99, direction: "expense", categoryId: "cat-uncat", confidence: 0.46, status: "flagged", manualOverride: false },
   { accountId: "acc-checking", date: "2026-04-12", postedDate: "2026-04-12", description: "ACH TRANSFER TO SAVINGS", merchant: "Bank Transfer", amount: -600, direction: "transfer", categoryId: "cat-transfer", confidence: 0.98, status: "reviewed", manualOverride: false },
-  { accountId: "acc-savings", date: "2026-04-12", postedDate: "2026-04-12", description: "ACH TRANSFER FROM CHECKING", merchant: "Bank Transfer", amount: 600, direction: "transfer", categoryId: "cat-transfer", confidence: 0.98, status: "reviewed", manualOverride: false },
+  { accountId: "acc-checking", date: "2026-04-12", postedDate: "2026-04-12", description: "ACH TRANSFER FROM CHECKING", merchant: "Bank Transfer", amount: 600, direction: "transfer", categoryId: "cat-transfer", confidence: 0.98, status: "reviewed", manualOverride: false },
   { accountId: "acc-checking", date: "2026-04-15", postedDate: "2026-04-15", description: "ACME PAYROLL ACH CREDIT", merchant: "Acme Payroll", amount: 5200, direction: "income", categoryId: "cat-income", confidence: 0.99, status: "reviewed", manualOverride: false },
   { accountId: "acc-checking", date: "2026-04-16", postedDate: "2026-04-16", description: "AUTO LOAN PAYMENT", merchant: "Demo Auto Finance", amount: -415.2, direction: "expense", categoryId: "cat-loan", confidence: 0.89, status: "reviewed", manualOverride: false },
-  { accountId: "acc-invest", date: "2026-04-18", postedDate: "2026-04-18", description: "BROKERAGE CONTRIBUTION", merchant: "Family Brokerage", amount: -350, direction: "transfer", categoryId: "cat-invest", confidence: 0.87, status: "reviewed", manualOverride: false },
+  { accountId: "acc-checking", date: "2026-04-18", postedDate: "2026-04-18", description: "BROKERAGE CONTRIBUTION", merchant: "Family Brokerage", amount: -350, direction: "transfer", categoryId: "cat-invest", confidence: 0.87, status: "reviewed", manualOverride: false },
   { accountId: "acc-card", date: "2026-04-20", postedDate: "2026-04-21", description: "BLUEBIRD CAFE", merchant: "Bluebird Cafe", amount: -48.64, direction: "expense", categoryId: "cat-dining", confidence: 0.84, status: "reviewed", manualOverride: false },
   { accountId: "acc-checking", date: "2026-04-24", postedDate: "2026-04-24", description: "WATER UTILITY PAYMENT", merchant: "City Water", amount: -69.31, direction: "expense", categoryId: "cat-utilities", confidence: 0.9, status: "reviewed", manualOverride: false },
   { accountId: "acc-card", date: "2026-04-27", postedDate: "2026-04-28", description: "TARGET T-1182", merchant: "Target", amount: -118.21, direction: "expense", categoryId: "cat-shopping", confidence: 0.67, status: "needs_review", manualOverride: false },
@@ -59,7 +57,7 @@ const mayJune: Omit<Transaction, "id" | "statementId">[] = [
   { accountId: "acc-checking", date: "2026-06-10", postedDate: "2026-06-10", description: "INTERNET BILLPAY", merchant: "FiberNet", amount: -82.0, direction: "expense", categoryId: "cat-utilities", confidence: 0.91, status: "reviewed", manualOverride: false },
   { accountId: "acc-card", date: "2026-06-13", postedDate: "2026-06-14", description: "TRADER JOE'S #671", merchant: "Trader Joe's", amount: -98.71, direction: "expense", categoryId: "cat-groceries", confidence: 0.9, status: "reviewed", manualOverride: false },
   { accountId: "acc-checking", date: "2026-06-15", postedDate: "2026-06-15", description: "ACME PAYROLL ACH CREDIT", merchant: "Acme Payroll", amount: 5200, direction: "income", categoryId: "cat-income", confidence: 0.99, status: "reviewed", manualOverride: false },
-  { accountId: "acc-invest", date: "2026-06-18", postedDate: "2026-06-18", description: "BROKERAGE CONTRIBUTION", merchant: "Family Brokerage", amount: -500, direction: "transfer", categoryId: "cat-invest", confidence: 0.87, status: "reviewed", manualOverride: false },
+  { accountId: "acc-checking", date: "2026-06-18", postedDate: "2026-06-18", description: "BROKERAGE CONTRIBUTION", merchant: "Family Brokerage", amount: -500, direction: "transfer", categoryId: "cat-invest", confidence: 0.87, status: "reviewed", manualOverride: false },
   { accountId: "acc-card", date: "2026-06-21", postedDate: "2026-06-22", description: "AMZN MKTP US*3L7R", merchant: "Amazon", amount: -129.48, direction: "expense", categoryId: "cat-shopping", confidence: 0.7, status: "needs_review", manualOverride: false },
   { accountId: "acc-card", date: "2026-06-25", postedDate: "2026-06-26", description: "HOSPITAL PARKING", merchant: "Hospital Parking", amount: -12, direction: "expense", categoryId: "cat-health", confidence: 0.63, status: "needs_review", manualOverride: false },
 ];

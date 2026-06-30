@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     public_mode: bool = False
     pdf_text_threshold: int = 80
     ml_min_training_rows: int = 6
+    checking_account_name: str = "Household Checking"
+    checking_account_last_four: str = "0000"
+    checking_statement_filename_token: str = ""
+    credit_account_name: str = "Everyday Credit Card"
+    credit_account_last_four: str = "0000"
+    credit_statement_filename_token: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

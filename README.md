@@ -2,15 +2,15 @@
 
 A local-first personal finance MVP that turns messy statement activity into normalized transactions, review queues, category intelligence, dashboard summaries, and CSV exports.
 
-This repository currently contains a recruiter-facing static demo built with synthetic household finance data. The UI is intentionally structured around a data service so the next phase can replace fixtures with a FastAPI backend without throwing away the product surface.
+This repository contains a recruiter-facing static demo built with privacy-safe fixture data plus a local-only FastAPI backend for private statement ingestion. The public UI is intentionally separated from private local data so real statements can be processed without exposing PDFs, raw transaction text, or account details.
 
-## Live Demo
+## Product Demo
 
-GitHub Pages target:
+Public product demo target:
 
 `https://<github-username>.github.io/smart-home-finance-platform/`
 
-After pushing to GitHub, enable Pages from GitHub Actions in the repository settings.
+After pushing to GitHub, enable Pages from GitHub Actions in the repository settings. The public demo runs as a static React app using sanitized fixture data.
 
 ## Current MVP
 
@@ -19,7 +19,7 @@ After pushing to GitHub, enable Pages from GitHub Actions in the repository sett
 - Statement review workflow preview for PDF/CSV ingestion.
 - Rules-first merchant normalization examples.
 - Functional CSV export for the current browser-session transaction state.
-- Synthetic data only; no personal financial data is stored in the repo.
+- Privacy-safe public fixture data; no real PDFs, raw transaction text, account numbers, or private exports are stored in the repo.
 - Local FastAPI backend foundation for private statement uploads, PostgreSQL storage, review corrections, CSV export, and scikit-learn categorization.
 
 ## Tech Stack
@@ -38,7 +38,7 @@ After pushing to GitHub, enable Pages from GitHub Actions in the repository sett
 
 ## Local Development
 
-Frontend fixture demo:
+Frontend public demo:
 
 ```bash
 npm install
@@ -131,7 +131,7 @@ The backend now implements those API surfaces locally:
 - `POST /api/ml/predict`
 - `GET /api/ml/status`
 
-The public GitHub Pages build defaults to fixture mode. Local API mode is opt-in through `VITE_DATA_MODE=api`.
+The public GitHub Pages build defaults to fixture mode using `src/data/sanitizedFixtures.ts`. Local API mode is opt-in through `VITE_DATA_MODE=api`.
 
 ## Private PDF Workflow
 
@@ -152,6 +152,75 @@ Upload behavior:
 - Marks scanned/empty PDFs clearly; OCR is not implemented yet.
 - Parses simple text/table-like transaction rows with a public generic parser.
 - Supports a local private parser profile at `local_data/parser_profile.json`.
+
+### Local Account Mapping
+
+If local statement filenames include account-specific tokens, keep those tokens in `.env`, not in committed source.
+
+Example local `.env` values:
+
+```bash
+CHECKING_ACCOUNT_NAME=Household Checking
+CHECKING_ACCOUNT_LAST_FOUR=0000
+CHECKING_STATEMENT_FILENAME_TOKEN=<checking filename token>
+CREDIT_ACCOUNT_NAME=Everyday Credit Card
+CREDIT_ACCOUNT_LAST_FOUR=0000
+CREDIT_STATEMENT_FILENAME_TOKEN=<credit filename token>
+```
+
+Use your real filename tokens and last-four values only in your ignored local `.env`.
+
+Register local statements with the correct account:
+
+```bash
+npm run statements:register
+```
+
+Register and immediately parse:
+
+```bash
+npm run statements:parse
+```
+
+This scans `local_data/statements/`, assigns each PDF/CSV to checking or credit based on the configured filename tokens, records the SHA-256 hash, detects PDF text, and optionally parses transactions.
+
+### Sanitized Public Demo Data
+
+After local parsing and review, generate a public-safe fixture:
+
+```bash
+npm run demo:sanitize
+```
+
+The sanitizer writes:
+
+```text
+src/data/sanitizedFixtures.ts
+```
+
+Sanitization behavior:
+
+- replaces account IDs and statement IDs
+- uses generic account names and `0000` last-four values
+- replaces merchant names with category-safe demo names
+- rewrites descriptions
+- shifts dates
+- rounds amounts to the nearest `$5`
+- removes statement filenames, source lines, hashes, and account-like values
+
+Run the frontend against sanitized fixtures:
+
+```bash
+VITE_FIXTURE_SOURCE=sanitized npm run dev
+```
+
+Run the older synthetic-only fixture set:
+
+```bash
+VITE_FIXTURE_SOURCE=synthetic npm run dev
+```
+
+The public GitHub Pages build defaults to sanitized fixtures. Only regenerate and commit `src/data/sanitizedFixtures.ts` after running the privacy checks below.
 
 ## Privacy Check
 
@@ -183,4 +252,4 @@ The check fails if staged files include private local data, PDFs, `.env`, or lon
 
 ## Privacy
 
-The demo data is synthetic. The long-term product direction is local-first so sensitive financial statements do not need to leave the user’s environment.
+The public demo data is sanitized fixture data. Private source statements, extracted text, local database state, and trained local models stay out of version control. The long-term product direction is local-first so sensitive financial statements do not need to leave the user’s environment.

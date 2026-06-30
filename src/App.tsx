@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowDownToLine,
   BarChart3,
@@ -34,6 +34,7 @@ import {
   getTransactions,
   isApiMode,
   updateTransactionCategory,
+  uploadStatement,
 } from "./services/financeData";
 import type { Account, Category, StatementImport, Transaction, ViewKey } from "./types";
 
@@ -63,6 +64,7 @@ function App() {
   const [statements, setStatements] = useState<StatementImport[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [query, setQuery] = useState("");
+  const [accountFilter, setAccountFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -105,9 +107,10 @@ function App() {
         transaction.description.toLowerCase().includes(normalizedQuery);
       const matchesCategory = categoryFilter === "all" || transaction.categoryId === categoryFilter;
       const matchesStatus = statusFilter === "all" || transaction.status === statusFilter;
-      return matchesQuery && matchesCategory && matchesStatus;
+      const matchesAccount = accountFilter === "all" || transaction.accountId === accountFilter;
+      return matchesQuery && matchesCategory && matchesStatus && matchesAccount;
     });
-  }, [categoryFilter, query, statusFilter, transactions]);
+  }, [accountFilter, categoryFilter, query, statusFilter, transactions]);
 
   async function handleCategoryChange(transactionId: string, categoryId: string) {
     const nextTransactions = await updateTransactionCategory(transactions, transactionId, categoryId);
@@ -123,6 +126,11 @@ function App() {
     link.download = "normalized-transactions-demo.csv";
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleStatementUpload(accountId: string, file: File) {
+    const uploaded = await uploadStatement(accountId, file);
+    setStatements((current) => [uploaded, ...current.filter((statement) => statement.id !== uploaded.id)]);
   }
 
   return (
@@ -158,7 +166,7 @@ function App() {
           <div className="mt-8 rounded-lg border border-line bg-panel p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-bluegray">Demo state</p>
             <p className="mt-2 text-sm leading-6 text-slate-700">
-              Synthetic household data only. The UI is wired through a service layer ready for FastAPI.
+              Privacy-safe fixture data. The UI can switch to FastAPI for local private statement review.
             </p>
           </div>
         </aside>
@@ -183,6 +191,8 @@ function App() {
               accounts={accounts}
               query={query}
               setQuery={setQuery}
+              accountFilter={accountFilter}
+              setAccountFilter={setAccountFilter}
               categoryFilter={categoryFilter}
               setCategoryFilter={setCategoryFilter}
               statusFilter={statusFilter}
@@ -196,6 +206,7 @@ function App() {
               accounts={accounts}
               transactions={transactions}
               categories={categories}
+              onStatementUpload={handleStatementUpload}
               onCategoryChange={(transactionId, categoryId) => void handleCategoryChange(transactionId, categoryId)}
             />
           )}
@@ -270,7 +281,7 @@ function Header({ activeView }: { activeView: ViewKey }) {
       </div>
       <div className="flex items-center gap-2 rounded-lg border border-line bg-panel px-3 py-2 text-sm text-slate-700">
         <Database size={16} />
-        Static MVP / synthetic data
+        Static MVP / privacy-safe data
       </div>
     </header>
   );
@@ -295,7 +306,9 @@ function Dashboard({
   const reviewCount = transactions.filter((t) => t.status !== "reviewed").length;
   const categoryTotals = getCategoryTotals(transactions, categories);
   const monthly = getMonthlyTrend(transactions);
+  const monthRange = getMonthRangeLabel(monthly);
   const topCategory = categoryTotals[0];
+  const accountSummaries = getAccountSummaries(transactions, accounts);
 
   return (
     <section className="space-y-5">
@@ -306,8 +319,33 @@ function Dashboard({
         <MetricCard label="Needs review" value={`${reviewCount}`} detail="Low confidence or ambiguous rows" tone="warning" />
       </div>
 
+      <Panel title="Account activity" action={`${accounts.length} linked accounts`}>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {accountSummaries.map((summary) => (
+            <div key={summary.account.id} className="rounded-lg border border-line bg-panel p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">{summary.account.name}</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {summary.account.type} / ****{summary.account.lastFour || "0000"}
+                  </p>
+                </div>
+                <span className="rounded-md border border-line bg-white px-2 py-1 text-xs text-slate-600">
+                  {summary.transactionCount} rows
+                </span>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
+                <MiniStat label="Income" valueText={money.format(summary.income)} />
+                <MiniStat label="Spend" valueText={money.format(summary.spending)} />
+                <MiniStat label="Transfers" valueText={money.format(summary.transfers)} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-        <Panel title="Monthly cash flow" action="Apr-Jun 2026">
+        <Panel title="Monthly cash flow" action={monthRange}>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthly}>
@@ -382,6 +420,8 @@ function TransactionsView({
   accounts,
   query,
   setQuery,
+  accountFilter,
+  setAccountFilter,
   categoryFilter,
   setCategoryFilter,
   statusFilter,
@@ -394,6 +434,8 @@ function TransactionsView({
   accounts: Account[];
   query: string;
   setQuery: (value: string) => void;
+  accountFilter: string;
+  setAccountFilter: (value: string) => void;
   categoryFilter: string;
   setCategoryFilter: (value: string) => void;
   statusFilter: string;
@@ -410,7 +452,7 @@ function TransactionsView({
       </div>
 
       <Panel title="Filters" action="Local UI state">
-        <div className="grid gap-3 lg:grid-cols-[1fr_220px_180px]">
+        <div className="grid gap-3 lg:grid-cols-[1fr_220px_220px_180px]">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-3 top-3 text-slate-400" size={18} />
             <input
@@ -420,6 +462,14 @@ function TransactionsView({
               placeholder="Search merchant or description"
             />
           </label>
+          <select className="input" value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)}>
+            <option value="all">All accounts</option>
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
           <select className="input" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
             <option value="all">All categories</option>
             {categories.map((category) => (
@@ -454,31 +504,71 @@ function ReviewView({
   accounts,
   transactions,
   categories,
+  onStatementUpload,
   onCategoryChange,
 }: {
   statements: StatementImport[];
   accounts: Account[];
   transactions: Transaction[];
   categories: Category[];
+  onStatementUpload: (accountId: string, file: File) => Promise<void>;
   onCategoryChange: (transactionId: string, categoryId: string) => void;
 }) {
   const queue = transactions.filter((transaction) => transaction.status !== "reviewed");
+  const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id ?? "");
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedAccountId && accounts[0]) {
+      setSelectedAccountId(accounts[0].id);
+    }
+  }, [accounts, selectedAccountId]);
+
+  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !selectedAccountId) {
+      return;
+    }
+    try {
+      await onStatementUpload(selectedAccountId, file);
+      setUploadMessage(`${file.name} staged for ${accountName(selectedAccountId, accounts)}.`);
+      event.target.value = "";
+    } catch (error) {
+      setUploadMessage(error instanceof Error ? error.message : "Upload failed.");
+    }
+  }
+
   return (
     <section className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
       <div className="space-y-5">
         <Panel title="Upload statement" action="Demo preview">
-          <div className="rounded-lg border-2 border-dashed border-line bg-panel p-8 text-center">
+          <div className="rounded-lg border-2 border-dashed border-line bg-panel p-6">
             <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-white text-moss shadow-soft">
               <Upload size={22} />
             </div>
-            <h3 className="mt-4 text-lg font-semibold">Drop a PDF or CSV statement</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              The MVP shows the intended workflow with synthetic parsed rows. FastAPI parsing is the next implementation step.
+            <h3 className="mt-4 text-center text-lg font-semibold">Assign statement to an account</h3>
+            <p className="mt-2 text-center text-sm leading-6 text-slate-600">
+              Choose checking or credit card before upload so parsed transactions inherit the correct account.
             </p>
-            <button className="mt-5 inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-medium text-white">
-              <ArrowDownToLine size={16} />
-              Stage demo import
-            </button>
+            <div className="mt-5 space-y-3">
+              <select
+                className="input"
+                value={selectedAccountId}
+                onChange={(event) => setSelectedAccountId(event.target.value)}
+              >
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} ({account.type})
+                  </option>
+                ))}
+              </select>
+              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-medium text-white">
+                <ArrowDownToLine size={16} />
+                Select PDF or CSV
+                <input className="sr-only" type="file" accept=".pdf,.csv" onChange={(event) => void handleUpload(event)} />
+              </label>
+              {uploadMessage && <p className="text-center text-sm text-slate-600">{uploadMessage}</p>}
+            </div>
           </div>
         </Panel>
 
@@ -749,10 +839,10 @@ function StatusBadge({ status }: { status: Transaction["status"] }) {
   return <span className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ring-1 ${className}`}>{label}</span>;
 }
 
-function MiniStat({ label, value }: { label: string; value: number }) {
+function MiniStat({ label, value, valueText }: { label: string; value?: number; valueText?: string }) {
   return (
     <div className="rounded-md bg-white p-2">
-      <p className="text-lg font-semibold">{value}</p>
+      <p className="text-lg font-semibold">{valueText ?? value}</p>
       <p className="text-xs text-slate-500">{label}</p>
     </div>
   );
@@ -777,12 +867,40 @@ function getCategoryTotals(transactions: Transaction[], categories: Category[]) 
 }
 
 function getMonthlyTrend(transactions: Transaction[]) {
-  const months = ["2026-04", "2026-05", "2026-06"];
+  const months = Array.from(
+    new Set(transactions.map((transaction) => transaction.date.slice(0, 7))),
+  ).sort();
   return months.map((month) => {
     const rows = transactions.filter((transaction) => transaction.date.startsWith(month));
     const income = rows.filter((row) => row.direction === "income").reduce((sum, row) => sum + row.amount, 0);
     const expenses = Math.abs(rows.filter((row) => row.direction === "expense").reduce((sum, row) => sum + row.amount, 0));
     return { month: new Date(`${month}-02`).toLocaleString("en-US", { month: "short" }), income, expenses };
+  });
+}
+
+function getMonthRangeLabel(monthly: Array<{ month: string }>) {
+  if (monthly.length === 0) {
+    return "No data";
+  }
+  if (monthly.length === 1) {
+    return monthly[0].month;
+  }
+  return `${monthly[0].month}-${monthly[monthly.length - 1].month}`;
+}
+
+function getAccountSummaries(transactions: Transaction[], accounts: Account[]) {
+  return accounts.map((account) => {
+    const rows = transactions.filter((transaction) => transaction.accountId === account.id);
+    const income = rows.filter((row) => row.direction === "income").reduce((sum, row) => sum + row.amount, 0);
+    const spending = Math.abs(rows.filter((row) => row.direction === "expense").reduce((sum, row) => sum + row.amount, 0));
+    const transfers = Math.abs(rows.filter((row) => row.direction === "transfer").reduce((sum, row) => sum + row.amount, 0));
+    return {
+      account,
+      income,
+      spending,
+      transfers,
+      transactionCount: rows.length,
+    };
   });
 }
 

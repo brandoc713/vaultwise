@@ -1,8 +1,25 @@
 import { accounts, categories, statementImports, transactions } from "../data/fixtures";
+import {
+  accounts as sanitizedAccounts,
+  categories as sanitizedCategories,
+  statementImports as sanitizedStatementImports,
+  transactions as sanitizedTransactions,
+} from "../data/sanitizedFixtures";
 import type { Account, Category, StatementImport, Transaction } from "../types";
 
 const dataMode = import.meta.env.VITE_DATA_MODE ?? "fixtures";
+const fixtureSource = import.meta.env.VITE_FIXTURE_SOURCE ?? "sanitized";
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
+const fixtureData =
+  fixtureSource === "sanitized"
+    ? {
+        accounts: sanitizedAccounts,
+        categories: sanitizedCategories,
+        statementImports: sanitizedStatementImports,
+        transactions: sanitizedTransactions,
+      }
+    : { accounts, categories, statementImports, transactions };
 
 export function isApiMode() {
   return dataMode === "api";
@@ -10,7 +27,7 @@ export function isApiMode() {
 
 export async function getAccounts(): Promise<Account[]> {
   if (!isApiMode()) {
-    return accounts;
+    return fixtureData.accounts;
   }
   const response = await fetch(`${apiBaseUrl}/api/accounts`);
   if (!response.ok) throw new Error("Failed to load accounts");
@@ -20,7 +37,7 @@ export async function getAccounts(): Promise<Account[]> {
 
 export async function getCategories(): Promise<Category[]> {
   if (!isApiMode()) {
-    return categories;
+    return fixtureData.categories;
   }
   const response = await fetch(`${apiBaseUrl}/api/categories`);
   if (!response.ok) throw new Error("Failed to load categories");
@@ -30,7 +47,7 @@ export async function getCategories(): Promise<Category[]> {
 
 export async function getTransactions(): Promise<Transaction[]> {
   if (!isApiMode()) {
-    return transactions;
+    return fixtureData.transactions;
   }
   const response = await fetch(`${apiBaseUrl}/api/transactions`);
   if (!response.ok) throw new Error("Failed to load transactions");
@@ -40,12 +57,38 @@ export async function getTransactions(): Promise<Transaction[]> {
 
 export async function getStatementImports(): Promise<StatementImport[]> {
   if (!isApiMode()) {
-    return statementImports;
+    return fixtureData.statementImports;
   }
   const response = await fetch(`${apiBaseUrl}/api/statements`);
   if (!response.ok) throw new Error("Failed to load statement imports");
   const rows = await response.json();
   return rows.map(mapStatement);
+}
+
+export async function uploadStatement(accountId: string, file: File): Promise<StatementImport> {
+  if (!isApiMode()) {
+    return {
+      id: `demo-upload-${Date.now()}`,
+      accountId,
+      fileName: file.name,
+      fileType: file.name.toLowerCase().endsWith(".csv") ? "csv" : "pdf",
+      importedAt: new Date().toISOString(),
+      parsedCount: 0,
+      needsReviewCount: 0,
+      duplicateCandidateCount: 0,
+      status: "needs_review",
+    };
+  }
+
+  const body = new FormData();
+  body.append("account_id", accountId);
+  body.append("file", file);
+  const response = await fetch(`${apiBaseUrl}/api/statements/upload`, {
+    method: "POST",
+    body,
+  });
+  if (!response.ok) throw new Error("Failed to upload statement");
+  return mapStatement(await response.json());
 }
 
 export async function updateTransactionCategory(
