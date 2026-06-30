@@ -8,11 +8,7 @@ The public demo uses privacy-safe fixture data generated from a local parsing wo
 
 Product demo:
 
-`https://<github-username>.github.io/vaultwise/`
-
-Repository:
-
-`https://github.com/<github-username>/vaultwise`
+`https://brandoc713.github.io/vaultwise/`
 
 ## Problem Statement
 
